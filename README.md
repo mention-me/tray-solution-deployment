@@ -8,6 +8,7 @@ A GitHub Action which can preview and publish Tray (formerly Tray.io, now Tray.a
 - `region` - The region of the Tray.ai account. Options: `us1`, `eu1`, `apac1` (**Required**)
 - `solutionId` - The ID of the solution to publish or preview. If not set, the path directly to a JSON export must be provided (**Optional**)
 - `path` - The path to the JSON export of a project which contains the solution ID to use. If not set, the solution ID must be provided (**Optional**)
+- `shouldPublish` - Whether the solution should be published (or just previewed). Options: `true`, `false` (**Optional**, default: `false`)
 
 ## Outputs
 
