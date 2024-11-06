@@ -32,7 +32,7 @@ export function parse(projectFile: string): Project {
 
   if (!json?.solution?.id) {
     throw new Error(
-      `The project JSON file must contain "name" and "version" fields`,
+      `The project JSON file does not have a solution ID`,
     );
   }
 
