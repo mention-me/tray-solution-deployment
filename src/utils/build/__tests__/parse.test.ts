@@ -12,7 +12,7 @@ describe("Given a project file to parse", () => {
   it("should handle a invalid project file", () => {
     expect(() =>
       parse("src/utils/__mocks__/invalid/missing-solution.json"),
-    ).toThrow(`The project JSON file must contain "name" and "version" fields`);
+    ).toThrow(`The project JSON file does not have a solution ID`);
   });
 
   it("should handle a missing file", () => {

@@ -31,16 +31,16 @@ export function parse(projectFile: string): Project {
   }
 
   if (!json?.solution?.id) {
-    throw new Error(
-      `The project JSON file must contain "name" and "version" fields`,
-    );
+    throw new Error(`The project JSON file does not have a solution ID`);
   }
 
-  core.info(`Project file has been parsed successfully. ID: ${json.id}`);
+  core.info(
+    `Project file has been parsed successfully. ID: ${json.solution.id}`,
+  );
 
   return {
     solution: {
-      id: json?.solution?.id,
+      id: json.solution.id,
     },
   };
 }
