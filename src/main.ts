@@ -30,11 +30,11 @@ export async function run(): Promise<void> {
       result = await preview(region, solutionId);
     }
 
-    console.log(result);
-
     core.setOutput("breakingChanges", result.breakingChanges);
     core.setOutput("requiresNewUserInput", result.requiresNewUserInput);
     core.setOutput("requiresNewSystemInput", result.requiresNewSystemInput);
+
+    core.debug(`Result: ${JSON.stringify(result)}`);
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message);
   }
