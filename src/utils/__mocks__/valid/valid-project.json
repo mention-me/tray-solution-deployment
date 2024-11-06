@@ -1,0 +1,34 @@
+{
+  "tray_export_version": 4,
+  "export_type": "project",
+  "workflows": [
+    {
+      "id": "567",
+      "title": "Mock Workflow",
+      "description": "",
+      "enabled": true,
+      "tags": [],
+      "settings": {
+        "config": {},
+        "input_schema": {},
+        "output_schema": {}
+      },
+      "steps_structure": [],
+      "steps": {},
+      "dependencies": []
+    }
+  ],
+  "solution": {
+    "id": "999",
+    "name": "Mock Solution"
+  },
+  "projects": [
+    {
+      "id": "1234",
+      "name": "Mock Project",
+      "config": {},
+      "workflows": ["567"],
+      "dependencies": []
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+name: Tray Solution Deployment
+description: "A GitHub Action to preview and deploy Tray.ai solutions"
+author: "Mention Me"
+
+branding:
+  icon: "code"
+  color: "black"
+
+inputs:
+  apiKey:
+    description: "The API key to use for deployment."
+    required: true
+  region:
+    description: "The region which the solution exists in. Options: us1, eu1, apac1."
+    required: true
+  solutionId:
+    description: "The solution ID to deploy the connector to. If not provided, the path to the project JSON file must be provided."
+    required: false
+  path:
+    description: "The path to the project JSON file. If not provided, the solution ID must be provided."
+    required: false
+  shouldPublish:
+    description: "Whether to preview (dry run) the publishing of the solution only. If false, the solution will not be published, it will only be previewed."
+    required: false
+    default: "false"
+
+outputs:
+  releaseId:
+    description: "The ID of the release which was created (if the solution was published)."
+  breakingChanges:
+    description: "Whether the solution contains breaking changes when published."
+  requiresNewUserInput:
+    description: "Whether the solution requires new user inputs after being published."
+  requiresNewSystemInput:
+    description: "Whether the solution requires new system inputs after being published."
+
+runs:
+  using: node20
+  main: dist/index.js
