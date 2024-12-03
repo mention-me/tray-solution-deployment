@@ -35203,7 +35203,7 @@ ${pendingInterceptorsFormatter.format(pending)}
       __nccwpck_require__,
     ) => {
       "use strict";
-      // Axios v1.7.7 Copyright (c) 2024 Matt Zabriskie and contributors
+      // Axios v1.7.8 Copyright (c) 2024 Matt Zabriskie and contributors
 
       const FormData$1 = __nccwpck_require__(6454);
       const url = __nccwpck_require__(7016);
@@ -35224,6 +35224,8 @@ ${pendingInterceptorsFormatter.format(pending)}
 
       const FormData__default = /*#__PURE__*/ _interopDefaultLegacy(FormData$1);
       const url__default = /*#__PURE__*/ _interopDefaultLegacy(url);
+      const proxyFromEnv__default =
+        /*#__PURE__*/ _interopDefaultLegacy(proxyFromEnv);
       const http__default = /*#__PURE__*/ _interopDefaultLegacy(http);
       const https__default = /*#__PURE__*/ _interopDefaultLegacy(https);
       const util__default = /*#__PURE__*/ _interopDefaultLegacy(util);
@@ -36498,7 +36500,7 @@ ${pendingInterceptorsFormatter.format(pending)}
        *
        * @param {string} url The base of the url (e.g., http://www.google.com)
        * @param {object} [params] The params to be appended
-       * @param {?object} options
+       * @param {?(object|Function)} options
        *
        * @returns {string} The formatted url
        */
@@ -36509,6 +36511,12 @@ ${pendingInterceptorsFormatter.format(pending)}
         }
 
         const _encode = (options && options.encode) || encode;
+
+        if (utils$1.isFunction(options)) {
+          options = {
+            serialize: options,
+          };
+        }
 
         const serializeFn = options && options.serialize;
 
@@ -37533,7 +37541,7 @@ ${pendingInterceptorsFormatter.format(pending)}
         return requestedURL;
       }
 
-      const VERSION = "1.7.7";
+      const VERSION = "1.7.8";
 
       function parseProtocol(url) {
         const match = /^([-+\w]{1,25})(:?\/\/|:)/.exec(url);
@@ -37774,7 +37782,10 @@ ${pendingInterceptorsFormatter.format(pending)}
 
       const BOUNDARY_ALPHABET = utils$1.ALPHABET.ALPHA_DIGIT + "-_";
 
-      const textEncoder = new util.TextEncoder();
+      const textEncoder =
+        typeof TextEncoder === "function"
+          ? new TextEncoder()
+          : new util__default["default"].TextEncoder();
 
       const CRLF = "\r\n";
       const CRLF_BYTES = textEncoder.encode(CRLF);
@@ -38140,7 +38151,8 @@ ${pendingInterceptorsFormatter.format(pending)}
       function setProxy(options, configProxy, location) {
         let proxy = configProxy;
         if (!proxy && proxy !== false) {
-          const proxyUrl = proxyFromEnv.getProxyForUrl(location);
+          const proxyUrl =
+            proxyFromEnv__default["default"].getProxyForUrl(location);
           if (proxyUrl) {
             proxy = new URL(proxyUrl);
           }
@@ -38425,7 +38437,7 @@ ${pendingInterceptorsFormatter.format(pending)}
                     /*eslint no-empty:0*/
                   } catch (e) {}
                 }
-              } else if (utils$1.isBlob(data)) {
+              } else if (utils$1.isBlob(data) || utils$1.isFile(data)) {
                 data.size &&
                   headers.setContentType(
                     data.type || "application/octet-stream",
@@ -38762,9 +38774,7 @@ ${pendingInterceptorsFormatter.format(pending)}
                     }
 
                     const err = new AxiosError(
-                      "maxContentLength size of " +
-                        config.maxContentLength +
-                        " exceeded",
+                      "stream has been aborted",
                       AxiosError.ERR_BAD_RESPONSE,
                       config,
                       lastRequest,
@@ -38914,78 +38924,20 @@ ${pendingInterceptorsFormatter.format(pending)}
         };
 
       const isURLSameOrigin = platform.hasStandardBrowserEnv
-        ? // Standard browser envs have full support of the APIs needed to test
-          // whether the request URL is of the same origin as current location.
-          (function standardBrowserEnv() {
-            const msie =
-              platform.navigator &&
-              /(msie|trident)/i.test(platform.navigator.userAgent);
-            const urlParsingNode = document.createElement("a");
-            let originURL;
+        ? ((origin, isMSIE) => (url) => {
+            url = new URL(url, platform.origin);
 
-            /**
-             * Parse a URL to discover its components
-             *
-             * @param {String} url The URL to be parsed
-             * @returns {Object}
-             */
-            function resolveURL(url) {
-              let href = url;
-
-              if (msie) {
-                // IE needs attribute set twice to normalize properties
-                urlParsingNode.setAttribute("href", href);
-                href = urlParsingNode.href;
-              }
-
-              urlParsingNode.setAttribute("href", href);
-
-              // urlParsingNode provides the UrlUtils interface - http://url.spec.whatwg.org/#urlutils
-              return {
-                href: urlParsingNode.href,
-                protocol: urlParsingNode.protocol
-                  ? urlParsingNode.protocol.replace(/:$/, "")
-                  : "",
-                host: urlParsingNode.host,
-                search: urlParsingNode.search
-                  ? urlParsingNode.search.replace(/^\?/, "")
-                  : "",
-                hash: urlParsingNode.hash
-                  ? urlParsingNode.hash.replace(/^#/, "")
-                  : "",
-                hostname: urlParsingNode.hostname,
-                port: urlParsingNode.port,
-                pathname:
-                  urlParsingNode.pathname.charAt(0) === "/"
-                    ? urlParsingNode.pathname
-                    : "/" + urlParsingNode.pathname,
-              };
-            }
-
-            originURL = resolveURL(window.location.href);
-
-            /**
-             * Determine if a URL shares the same origin as the current location
-             *
-             * @param {String} requestURL The URL to test
-             * @returns {boolean} True if URL shares the same origin, otherwise false
-             */
-            return function isURLSameOrigin(requestURL) {
-              const parsed = utils$1.isString(requestURL)
-                ? resolveURL(requestURL)
-                : requestURL;
-              return (
-                parsed.protocol === originURL.protocol &&
-                parsed.host === originURL.host
-              );
-            };
-          })()
-        : // Non standard browser envs (web workers, react-native) lack needed support.
-          (function nonStandardBrowserEnv() {
-            return function isURLSameOrigin() {
-              return true;
-            };
-          })();
+            return (
+              origin.protocol === url.protocol &&
+              origin.host === url.host &&
+              (isMSIE || origin.port === url.port)
+            );
+          })(
+            new URL(platform.origin),
+            platform.navigator &&
+              /(msie|trident)/i.test(platform.navigator.userAgent),
+          )
+        : () => true;
 
       const cookies = platform.hasStandardBrowserEnv
         ? // Standard browser envs support document.cookie
@@ -39042,7 +38994,7 @@ ${pendingInterceptorsFormatter.format(pending)}
         config2 = config2 || {};
         const config = {};
 
-        function getMergedValue(target, source, caseless) {
+        function getMergedValue(target, source, prop, caseless) {
           if (utils$1.isPlainObject(target) && utils$1.isPlainObject(source)) {
             return utils$1.merge.call({ caseless }, target, source);
           } else if (utils$1.isPlainObject(source)) {
@@ -39054,11 +39006,11 @@ ${pendingInterceptorsFormatter.format(pending)}
         }
 
         // eslint-disable-next-line consistent-return
-        function mergeDeepProperties(a, b, caseless) {
+        function mergeDeepProperties(a, b, prop, caseless) {
           if (!utils$1.isUndefined(b)) {
-            return getMergedValue(a, b, caseless);
+            return getMergedValue(a, b, prop, caseless);
           } else if (!utils$1.isUndefined(a)) {
-            return getMergedValue(undefined, a, caseless);
+            return getMergedValue(undefined, a, prop, caseless);
           }
         }
 
@@ -39116,8 +39068,13 @@ ${pendingInterceptorsFormatter.format(pending)}
           socketPath: defaultToConfig2,
           responseEncoding: defaultToConfig2,
           validateStatus: mergeDirectKeys,
-          headers: (a, b) =>
-            mergeDeepProperties(headersToObject(a), headersToObject(b), true),
+          headers: (a, b, prop) =>
+            mergeDeepProperties(
+              headersToObject(a),
+              headersToObject(b),
+              prop,
+              true,
+            ),
         };
 
         utils$1.forEach(
@@ -40129,6 +40086,14 @@ ${pendingInterceptorsFormatter.format(pending)}
         };
       };
 
+      validators$1.spelling = function spelling(correctSpelling) {
+        return (value, opt) => {
+          // eslint-disable-next-line no-console
+          console.warn(`${opt} is likely a misspelling of ${correctSpelling}`);
+          return true;
+        };
+      };
+
       /**
        * Assert object's properties type
        *
@@ -40208,10 +40173,10 @@ ${pendingInterceptorsFormatter.format(pending)}
             return await this._request(configOrUrl, config);
           } catch (err) {
             if (err instanceof Error) {
-              let dummy;
+              let dummy = {};
 
               Error.captureStackTrace
-                ? Error.captureStackTrace((dummy = {}))
+                ? Error.captureStackTrace(dummy)
                 : (dummy = new Error());
 
               // slice off the Error: ... line
@@ -40279,6 +40244,15 @@ ${pendingInterceptorsFormatter.format(pending)}
               );
             }
           }
+
+          validator.assertOptions(
+            config,
+            {
+              baseUrl: validators.spelling("baseURL"),
+              withXsrfToken: validators.spelling("withXSRFToken"),
+            },
+            true,
+          );
 
           // Set config.method
           config.method = (
