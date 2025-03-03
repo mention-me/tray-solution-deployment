@@ -35218,9 +35218,10 @@ ${pendingInterceptorsFormatter.format(pending)}
       __nccwpck_require__,
     ) => {
       "use strict";
-      // Axios v1.7.9 Copyright (c) 2024 Matt Zabriskie and contributors
+      /*! Axios v1.8.1 Copyright (c) 2025 Matt Zabriskie and contributors */
 
       const FormData$1 = __nccwpck_require__(6454);
+      const crypto = __nccwpck_require__(6982);
       const url = __nccwpck_require__(7016);
       const proxyFromEnv = __nccwpck_require__(7777);
       const http = __nccwpck_require__(8611);
@@ -35238,6 +35239,7 @@ ${pendingInterceptorsFormatter.format(pending)}
       }
 
       const FormData__default = /*#__PURE__*/ _interopDefaultLegacy(FormData$1);
+      const crypto__default = /*#__PURE__*/ _interopDefaultLegacy(crypto);
       const url__default = /*#__PURE__*/ _interopDefaultLegacy(url);
       const proxyFromEnv__default =
         /*#__PURE__*/ _interopDefaultLegacy(proxyFromEnv);
@@ -35905,26 +35907,6 @@ ${pendingInterceptorsFormatter.format(pending)}
           : defaultValue;
       };
 
-      const ALPHA = "abcdefghijklmnopqrstuvwxyz";
-
-      const DIGIT = "0123456789";
-
-      const ALPHABET = {
-        DIGIT,
-        ALPHA,
-        ALPHA_DIGIT: ALPHA + ALPHA.toUpperCase() + DIGIT,
-      };
-
-      const generateString = (size = 16, alphabet = ALPHABET.ALPHA_DIGIT) => {
-        let str = "";
-        const { length } = alphabet;
-        while (size--) {
-          str += alphabet[(Math.random() * length) | 0];
-        }
-
-        return str;
-      };
-
       /**
        * If the thing is a FormData object, return true, otherwise return false.
        *
@@ -36065,8 +36047,6 @@ ${pendingInterceptorsFormatter.format(pending)}
         findKey,
         global: _global,
         isContextDefined,
-        ALPHABET,
-        generateString,
         isSpecCompliantForm,
         toJSONObject,
         isAsyncFn,
@@ -36633,6 +36613,28 @@ ${pendingInterceptorsFormatter.format(pending)}
 
       const URLSearchParams = url__default["default"].URLSearchParams;
 
+      const ALPHA = "abcdefghijklmnopqrstuvwxyz";
+
+      const DIGIT = "0123456789";
+
+      const ALPHABET = {
+        DIGIT,
+        ALPHA,
+        ALPHA_DIGIT: ALPHA + ALPHA.toUpperCase() + DIGIT,
+      };
+
+      const generateString = (size = 16, alphabet = ALPHABET.ALPHA_DIGIT) => {
+        let str = "";
+        const { length } = alphabet;
+        const randomValues = new Uint32Array(size);
+        crypto__default["default"].randomFillSync(randomValues);
+        for (let i = 0; i < size; i++) {
+          str += alphabet[randomValues[i] % length];
+        }
+
+        return str;
+      };
+
       const platform$1 = {
         isNode: true,
         classes: {
@@ -36640,6 +36642,8 @@ ${pendingInterceptorsFormatter.format(pending)}
           FormData: FormData__default["default"],
           Blob: (typeof Blob !== "undefined" && Blob) || null,
         },
+        ALPHABET,
+        generateString,
         protocols: ["http", "https", "file", "data"],
       };
 
@@ -37549,14 +37553,15 @@ ${pendingInterceptorsFormatter.format(pending)}
        *
        * @returns {string} The combined full path
        */
-      function buildFullPath(baseURL, requestedURL) {
-        if (baseURL && !isAbsoluteURL(requestedURL)) {
+      function buildFullPath(baseURL, requestedURL, allowAbsoluteUrls) {
+        let isRelativeUrl = !isAbsoluteURL(requestedURL);
+        if ((baseURL && isRelativeUrl) || allowAbsoluteUrls == false) {
           return combineURLs(baseURL, requestedURL);
         }
         return requestedURL;
       }
 
-      const VERSION = "1.7.9";
+      const VERSION = "1.8.1";
 
       function parseProtocol(url) {
         const match = /^([-+\w]{1,25})(:?\/\/|:)/.exec(url);
@@ -37795,7 +37800,7 @@ ${pendingInterceptorsFormatter.format(pending)}
 
       const readBlob$1 = readBlob;
 
-      const BOUNDARY_ALPHABET = utils$1.ALPHABET.ALPHA_DIGIT + "-_";
+      const BOUNDARY_ALPHABET = platform.ALPHABET.ALPHA_DIGIT + "-_";
 
       const textEncoder =
         typeof TextEncoder === "function"
@@ -37869,7 +37874,7 @@ ${pendingInterceptorsFormatter.format(pending)}
           size = 25,
           boundary = tag +
             "-" +
-            utils$1.generateString(size, BOUNDARY_ALPHABET),
+            platform.generateString(size, BOUNDARY_ALPHABET),
         } = options || {};
 
         if (!utils$1.isFormData(form)) {
@@ -40260,6 +40265,14 @@ ${pendingInterceptorsFormatter.format(pending)}
             }
           }
 
+          // Set config.allowAbsoluteUrls
+          if (config.allowAbsoluteUrls !== undefined);
+          else if (this.defaults.allowAbsoluteUrls !== undefined) {
+            config.allowAbsoluteUrls = this.defaults.allowAbsoluteUrls;
+          } else {
+            config.allowAbsoluteUrls = true;
+          }
+
           validator.assertOptions(
             config,
             {
@@ -40379,7 +40392,11 @@ ${pendingInterceptorsFormatter.format(pending)}
 
         getUri(config) {
           config = mergeConfig(this.defaults, config);
-          const fullPath = buildFullPath(config.baseURL, config.url);
+          const fullPath = buildFullPath(
+            config.baseURL,
+            config.url,
+            config.allowAbsoluteUrls,
+          );
           return buildURL(fullPath, config.params, config.paramsSerializer);
         }
       }
