@@ -45,6 +45,7 @@ with:
 
 To develop this action, you can use the following commands:
 
+- `npm install` - Install the dependencies
 - `npm run test` - Run the tests
 - `npm run bundle` - Update the distribution files (`./dist`). This is required before merging changes.
 
