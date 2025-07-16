@@ -3627,7 +3627,7 @@ require("./sourcemap-register.js");
           void 0;
       const fs = __importStar(__nccwpck_require__(9896));
       const path = __importStar(__nccwpck_require__(6928));
-      (_a = fs.promises),
+      ((_a = fs.promises),
         // export const {open} = 'fs'
         (exports.chmod = _a.chmod),
         (exports.copyFile = _a.copyFile),
@@ -3641,7 +3641,7 @@ require("./sourcemap-register.js");
         (exports.rmdir = _a.rmdir),
         (exports.stat = _a.stat),
         (exports.symlink = _a.symlink),
-        (exports.unlink = _a.unlink);
+        (exports.unlink = _a.unlink));
       // export const {open} = 'fs'
       exports.IS_WINDOWS = process.platform === "win32";
       // See https://github.com/nodejs/node/blob/d0153aee367422d0858105abec186da4dff0a0c5/deps/uv/include/uv/win.h#L691
