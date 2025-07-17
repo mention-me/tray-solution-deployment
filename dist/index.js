@@ -35236,7 +35236,7 @@ ${pendingInterceptorsFormatter.format(pending)}
       __nccwpck_require__,
     ) => {
       "use strict";
-      /*! Axios v1.9.0 Copyright (c) 2025 Matt Zabriskie and contributors */
+      /*! Axios v1.10.0 Copyright (c) 2025 Matt Zabriskie and contributors */
 
       const FormData$1 = __nccwpck_require__(6454);
       const crypto = __nccwpck_require__(6982);
@@ -36321,6 +36321,10 @@ ${pendingInterceptorsFormatter.format(pending)}
 
           if (utils$1.isDate(value)) {
             return value.toISOString();
+          }
+
+          if (utils$1.isBoolean(value)) {
+            return value.toString();
           }
 
           if (!useBlob && utils$1.isBlob(value)) {
@@ -37601,7 +37605,7 @@ ${pendingInterceptorsFormatter.format(pending)}
         return requestedURL;
       }
 
-      const VERSION = "1.9.0";
+      const VERSION = "1.10.0";
 
       function parseProtocol(url) {
         const match = /^([-+\w]{1,25})(:?\/\/|:)/.exec(url);
@@ -39840,7 +39844,7 @@ ${pendingInterceptorsFormatter.format(pending)}
               credentials: isCredentialsSupported ? withCredentials : undefined,
             });
 
-            let response = await fetch(request);
+            let response = await fetch(request, fetchOptions);
 
             const isStreamResponse =
               supportsResponseStream &&
