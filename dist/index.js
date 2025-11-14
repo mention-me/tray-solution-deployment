@@ -36408,7 +36408,7 @@ ${pendingInterceptorsFormatter.format(pending)}
       __nccwpck_require__,
     ) => {
       "use strict";
-      /*! Axios v1.11.0 Copyright (c) 2025 Matt Zabriskie and contributors */
+      /*! Axios v1.12.2 Copyright (c) 2025 Matt Zabriskie and contributors */
 
       const FormData$1 = __nccwpck_require__(6454);
       const crypto = __nccwpck_require__(6982);
@@ -36496,7 +36496,7 @@ ${pendingInterceptorsFormatter.format(pending)}
           !isUndefined(val) &&
           val.constructor !== null &&
           !isUndefined(val.constructor) &&
-          isFunction(val.constructor.isBuffer) &&
+          isFunction$1(val.constructor.isBuffer) &&
           val.constructor.isBuffer(val)
         );
       }
@@ -36542,7 +36542,7 @@ ${pendingInterceptorsFormatter.format(pending)}
        * @param {*} val The value to test
        * @returns {boolean} True if value is a Function, otherwise false
        */
-      const isFunction = typeOfTest("function");
+      const isFunction$1 = typeOfTest("function");
 
       /**
        * Determine if a value is a Number
@@ -36659,7 +36659,7 @@ ${pendingInterceptorsFormatter.format(pending)}
        *
        * @returns {boolean} True if value is a Stream, otherwise false
        */
-      const isStream = (val) => isObject(val) && isFunction(val.pipe);
+      const isStream = (val) => isObject(val) && isFunction$1(val.pipe);
 
       /**
        * Determine if a value is a FormData
@@ -36673,11 +36673,11 @@ ${pendingInterceptorsFormatter.format(pending)}
         return (
           thing &&
           ((typeof FormData === "function" && thing instanceof FormData) ||
-            (isFunction(thing.append) &&
+            (isFunction$1(thing.append) &&
               ((kind = kindOf(thing)) === "formdata" ||
                 // detect form-data instance
                 (kind === "object" &&
-                  isFunction(thing.toString) &&
+                  isFunction$1(thing.toString) &&
                   thing.toString() === "[object FormData]"))))
         );
       };
@@ -36815,7 +36815,8 @@ ${pendingInterceptorsFormatter.format(pending)}
        * @returns {Object} Result of all merge properties
        */
       function merge(/* obj1, obj2, obj3, ... */) {
-        const { caseless } = (isContextDefined(this) && this) || {};
+        const { caseless, skipUndefined } =
+          (isContextDefined(this) && this) || {};
         const result = {};
         const assignValue = (val, key) => {
           const targetKey = (caseless && findKey(result, key)) || key;
@@ -36825,7 +36826,7 @@ ${pendingInterceptorsFormatter.format(pending)}
             result[targetKey] = merge({}, val);
           } else if (isArray(val)) {
             result[targetKey] = val.slice();
-          } else {
+          } else if (!skipUndefined || !isUndefined(val)) {
             result[targetKey] = val;
           }
         };
@@ -36850,7 +36851,7 @@ ${pendingInterceptorsFormatter.format(pending)}
         forEach(
           b,
           (val, key) => {
-            if (thisArg && isFunction(val)) {
+            if (thisArg && isFunction$1(val)) {
               a[key] = bind(val, thisArg);
             } else {
               a[key] = val;
@@ -37082,7 +37083,7 @@ ${pendingInterceptorsFormatter.format(pending)}
         reduceDescriptors(obj, (descriptor, name) => {
           // skip restricted props in strict mode
           if (
-            isFunction(obj) &&
+            isFunction$1(obj) &&
             ["arguments", "caller", "callee"].indexOf(name) !== -1
           ) {
             return false;
@@ -37090,7 +37091,7 @@ ${pendingInterceptorsFormatter.format(pending)}
 
           const value = obj[name];
 
-          if (!isFunction(value)) return;
+          if (!isFunction$1(value)) return;
 
           descriptor.enumerable = false;
 
@@ -37141,7 +37142,7 @@ ${pendingInterceptorsFormatter.format(pending)}
       function isSpecCompliantForm(thing) {
         return !!(
           thing &&
-          isFunction(thing.append) &&
+          isFunction$1(thing.append) &&
           thing[toStringTag] === "FormData" &&
           thing[iterator]
         );
@@ -37186,9 +37187,9 @@ ${pendingInterceptorsFormatter.format(pending)}
 
       const isThenable = (thing) =>
         thing &&
-        (isObject(thing) || isFunction(thing)) &&
-        isFunction(thing.then) &&
-        isFunction(thing.catch);
+        (isObject(thing) || isFunction$1(thing)) &&
+        isFunction$1(thing.then) &&
+        isFunction$1(thing.catch);
 
       // original code
       // https://github.com/DigitalBrainJS/AxiosPromise/blob/16deab13710ec09779922131f3fa5954320f83ab/lib/utils.js#L11-L34
@@ -37216,7 +37217,7 @@ ${pendingInterceptorsFormatter.format(pending)}
               };
             })(`axios@${Math.random()}`, [])
           : (cb) => setTimeout(cb);
-      })(typeof setImmediate === "function", isFunction(_global.postMessage));
+      })(typeof setImmediate === "function", isFunction$1(_global.postMessage));
 
       const asap =
         typeof queueMicrotask !== "undefined"
@@ -37227,7 +37228,7 @@ ${pendingInterceptorsFormatter.format(pending)}
       // *********************
 
       const isIterable = (thing) =>
-        thing != null && isFunction(thing[iterator]);
+        thing != null && isFunction$1(thing[iterator]);
 
       const utils$1 = {
         isArray,
@@ -37250,7 +37251,7 @@ ${pendingInterceptorsFormatter.format(pending)}
         isFile,
         isBlob,
         isRegExp,
-        isFunction,
+        isFunction: isFunction$1,
         isStream,
         isURLSearchParams,
         isTypedArray,
@@ -37388,18 +37389,21 @@ ${pendingInterceptorsFormatter.format(pending)}
           },
         );
 
-        AxiosError.call(
-          axiosError,
-          error.message,
-          code,
-          config,
-          request,
-          response,
-        );
+        const msg = error && error.message ? error.message : "Error";
 
-        axiosError.cause = error;
+        // Prefer explicit code; otherwise copy the low-level error's code (e.g. ECONNREFUSED)
+        const errCode = code == null && error ? error.code : code;
+        AxiosError.call(axiosError, msg, errCode, config, request, response);
 
-        axiosError.name = error.name;
+        // Chain the original error on the standard field; non-enumerable to avoid JSON noise
+        if (error && axiosError.cause == null) {
+          Object.defineProperty(axiosError, "cause", {
+            value: error,
+            configurable: true,
+          });
+        }
+
+        axiosError.name = (error && error.name) || "Error";
 
         customProps && Object.assign(axiosError, customProps);
 
@@ -37723,9 +37727,7 @@ ${pendingInterceptorsFormatter.format(pending)}
           .replace(/%3A/gi, ":")
           .replace(/%24/g, "$")
           .replace(/%2C/gi, ",")
-          .replace(/%20/g, "+")
-          .replace(/%5B/gi, "[")
-          .replace(/%5D/gi, "]");
+          .replace(/%20/g, "+");
       }
 
       /**
@@ -38179,7 +38181,7 @@ ${pendingInterceptorsFormatter.format(pending)}
               const strictJSONParsing = !silentJSONParsing && JSONRequested;
 
               try {
-                return JSON.parse(data);
+                return JSON.parse(data, this.parseReviver);
               } catch (e) {
                 if (strictJSONParsing) {
                   if (e.name === "SyntaxError") {
@@ -38810,7 +38812,7 @@ ${pendingInterceptorsFormatter.format(pending)}
         return requestedURL;
       }
 
-      const VERSION = "1.11.0";
+      const VERSION = "1.12.2";
 
       function parseProtocol(url) {
         const match = /^([-+\w]{1,25})(:?\/\/|:)/.exec(url);
@@ -39360,6 +39362,84 @@ ${pendingInterceptorsFormatter.format(pending)}
         (...args) =>
           utils$1.asap(() => fn(...args));
 
+      /**
+       * Estimate decoded byte length of a data:// URL *without* allocating large buffers.
+       * - For base64: compute exact decoded size using length and padding;
+       *               handle %XX at the character-count level (no string allocation).
+       * - For non-base64: use UTF-8 byteLength of the encoded body as a safe upper bound.
+       *
+       * @param {string} url
+       * @returns {number}
+       */
+      function estimateDataURLDecodedBytes(url) {
+        if (!url || typeof url !== "string") return 0;
+        if (!url.startsWith("data:")) return 0;
+
+        const comma = url.indexOf(",");
+        if (comma < 0) return 0;
+
+        const meta = url.slice(5, comma);
+        const body = url.slice(comma + 1);
+        const isBase64 = /;base64/i.test(meta);
+
+        if (isBase64) {
+          let effectiveLen = body.length;
+          const len = body.length; // cache length
+
+          for (let i = 0; i < len; i++) {
+            if (body.charCodeAt(i) === 37 /* '%' */ && i + 2 < len) {
+              const a = body.charCodeAt(i + 1);
+              const b = body.charCodeAt(i + 2);
+              const isHex =
+                ((a >= 48 && a <= 57) ||
+                  (a >= 65 && a <= 70) ||
+                  (a >= 97 && a <= 102)) &&
+                ((b >= 48 && b <= 57) ||
+                  (b >= 65 && b <= 70) ||
+                  (b >= 97 && b <= 102));
+
+              if (isHex) {
+                effectiveLen -= 2;
+                i += 2;
+              }
+            }
+          }
+
+          let pad = 0;
+          let idx = len - 1;
+
+          const tailIsPct3D = (j) =>
+            j >= 2 &&
+            body.charCodeAt(j - 2) === 37 && // '%'
+            body.charCodeAt(j - 1) === 51 && // '3'
+            (body.charCodeAt(j) === 68 || body.charCodeAt(j) === 100); // 'D' or 'd'
+
+          if (idx >= 0) {
+            if (body.charCodeAt(idx) === 61 /* '=' */) {
+              pad++;
+              idx--;
+            } else if (tailIsPct3D(idx)) {
+              pad++;
+              idx -= 3;
+            }
+          }
+
+          if (pad === 1 && idx >= 0) {
+            if (body.charCodeAt(idx) === 61 /* '=' */) {
+              pad++;
+            } else if (tailIsPct3D(idx)) {
+              pad++;
+            }
+          }
+
+          const groups = Math.floor(effectiveLen / 4);
+          const bytes = groups * 3 - (pad || 0);
+          return bytes > 0 ? bytes : 0;
+        }
+
+        return Buffer.byteLength(body, "utf8");
+      }
+
       const zlibOptions = {
         flush: zlib__default["default"].constants.Z_SYNC_FLUSH,
         finishFlush: zlib__default["default"].constants.Z_SYNC_FLUSH,
@@ -39604,6 +39684,25 @@ ${pendingInterceptorsFormatter.format(pending)}
               const protocol = parsed.protocol || supportedProtocols[0];
 
               if (protocol === "data:") {
+                // Apply the same semantics as HTTP: only enforce if a finite, non-negative cap is set.
+                if (config.maxContentLength > -1) {
+                  // Use the exact string passed to fromDataURI (config.url); fall back to fullPath if needed.
+                  const dataUrl = String(config.url || fullPath || "");
+                  const estimated = estimateDataURLDecodedBytes(dataUrl);
+
+                  if (estimated > config.maxContentLength) {
+                    return reject(
+                      new AxiosError(
+                        "maxContentLength size of " +
+                          config.maxContentLength +
+                          " exceeded",
+                        AxiosError.ERR_BAD_RESPONSE,
+                        config,
+                      ),
+                    );
+                  }
+                }
+
                 let convertedData;
 
                 if (method !== "GET") {
@@ -40400,25 +40499,22 @@ ${pendingInterceptorsFormatter.format(pending)}
           );
         }
 
-        let contentType;
-
         if (utils$1.isFormData(data)) {
           if (
             platform.hasStandardBrowserEnv ||
             platform.hasStandardBrowserWebWorkerEnv
           ) {
-            headers.setContentType(undefined); // Let the browser set it
-          } else if ((contentType = headers.getContentType()) !== false) {
-            // fix semicolon duplication issue for ReactNative FormData implementation
-            const [type, ...tokens] = contentType
-              ? contentType
-                  .split(";")
-                  .map((token) => token.trim())
-                  .filter(Boolean)
-              : [];
-            headers.setContentType(
-              [type || "multipart/form-data", ...tokens].join("; "),
-            );
+            headers.setContentType(undefined); // browser handles it
+          } else if (utils$1.isFunction(data.getHeaders)) {
+            // Node.js FormData (like form-data package)
+            const formHeaders = data.getHeaders();
+            // Only set safe headers to avoid overwriting security headers
+            const allowedHeaders = ["content-type", "content-length"];
+            Object.entries(formHeaders).forEach(([key, val]) => {
+              if (allowedHeaders.includes(key.toLowerCase())) {
+                headers.set(key, val);
+              }
+            });
           }
         }
 
@@ -40572,19 +40668,21 @@ ${pendingInterceptorsFormatter.format(pending)}
             };
 
             // Handle low level network errors
-            request.onerror = function handleError() {
-              // Real errors are hidden from us by the browser
-              // onerror should only fire if it's a network error
-              reject(
-                new AxiosError(
-                  "Network Error",
-                  AxiosError.ERR_NETWORK,
-                  config,
-                  request,
-                ),
+            request.onerror = function handleError(event) {
+              // Browsers deliver a ProgressEvent in XHR onerror
+              // (message may be empty; when present, surface it)
+              // See https://developer.mozilla.org/docs/Web/API/XMLHttpRequest/error_event
+              const msg =
+                event && event.message ? event.message : "Network Error";
+              const err = new AxiosError(
+                msg,
+                AxiosError.ERR_NETWORK,
+                config,
+                request,
               );
-
-              // Clean up request
+              // attach the underlying event for consumers who want details
+              err.event = event || null;
+              reject(err);
               request = null;
             };
 
@@ -40846,23 +40944,17 @@ ${pendingInterceptorsFormatter.format(pending)}
         );
       };
 
-      const isFetchSupported =
-        typeof fetch === "function" &&
-        typeof Request === "function" &&
-        typeof Response === "function";
-      const isReadableStreamSupported =
-        isFetchSupported && typeof ReadableStream === "function";
+      const DEFAULT_CHUNK_SIZE = 64 * 1024;
 
-      // used only inside the fetch adapter
-      const encodeText =
-        isFetchSupported &&
-        (typeof TextEncoder === "function"
-          ? (
-              (encoder) => (str) =>
-                encoder.encode(str)
-            )(new TextEncoder())
-          : async (str) =>
-              new Uint8Array(await new Response(str).arrayBuffer()));
+      const { isFunction } = utils$1;
+
+      const globalFetchAPI = (({ Request, Response }) => ({
+        Request,
+        Response,
+      }))(utils$1.global);
+
+      const { ReadableStream: ReadableStream$1, TextEncoder: TextEncoder$1 } =
+        utils$1.global;
 
       const test = (fn, ...args) => {
         try {
@@ -40872,90 +40964,125 @@ ${pendingInterceptorsFormatter.format(pending)}
         }
       };
 
-      const supportsRequestStream =
-        isReadableStreamSupported &&
-        test(() => {
-          let duplexAccessed = false;
+      const factory = (env) => {
+        env = utils$1.merge.call(
+          {
+            skipUndefined: true,
+          },
+          globalFetchAPI,
+          env,
+        );
 
-          const hasContentType = new Request(platform.origin, {
-            body: new ReadableStream(),
-            method: "POST",
-            get duplex() {
-              duplexAccessed = true;
-              return "half";
-            },
-          }).headers.has("Content-Type");
+        const { fetch: envFetch, Request, Response } = env;
+        const isFetchSupported = envFetch
+          ? isFunction(envFetch)
+          : typeof fetch === "function";
+        const isRequestSupported = isFunction(Request);
+        const isResponseSupported = isFunction(Response);
 
-          return duplexAccessed && !hasContentType;
-        });
-
-      const DEFAULT_CHUNK_SIZE = 64 * 1024;
-
-      const supportsResponseStream =
-        isReadableStreamSupported &&
-        test(() => utils$1.isReadableStream(new Response("").body));
-
-      const resolvers = {
-        stream: supportsResponseStream && ((res) => res.body),
-      };
-
-      isFetchSupported &&
-        ((res) => {
-          ["text", "arrayBuffer", "blob", "formData", "stream"].forEach(
-            (type) => {
-              !resolvers[type] &&
-                (resolvers[type] = utils$1.isFunction(res[type])
-                  ? (res) => res[type]()
-                  : (_, config) => {
-                      throw new AxiosError(
-                        `Response type '${type}' is not supported`,
-                        AxiosError.ERR_NOT_SUPPORT,
-                        config,
-                      );
-                    });
-            },
-          );
-        })(new Response());
-
-      const getBodyLength = async (body) => {
-        if (body == null) {
-          return 0;
+        if (!isFetchSupported) {
+          return false;
         }
 
-        if (utils$1.isBlob(body)) {
-          return body.size;
-        }
+        const isReadableStreamSupported =
+          isFetchSupported && isFunction(ReadableStream$1);
 
-        if (utils$1.isSpecCompliantForm(body)) {
-          const _request = new Request(platform.origin, {
-            method: "POST",
-            body,
+        const encodeText =
+          isFetchSupported &&
+          (typeof TextEncoder$1 === "function"
+            ? (
+                (encoder) => (str) =>
+                  encoder.encode(str)
+              )(new TextEncoder$1())
+            : async (str) =>
+                new Uint8Array(await new Request(str).arrayBuffer()));
+
+        const supportsRequestStream =
+          isRequestSupported &&
+          isReadableStreamSupported &&
+          test(() => {
+            let duplexAccessed = false;
+
+            const hasContentType = new Request(platform.origin, {
+              body: new ReadableStream$1(),
+              method: "POST",
+              get duplex() {
+                duplexAccessed = true;
+                return "half";
+              },
+            }).headers.has("Content-Type");
+
+            return duplexAccessed && !hasContentType;
           });
-          return (await _request.arrayBuffer()).byteLength;
-        }
 
-        if (utils$1.isArrayBufferView(body) || utils$1.isArrayBuffer(body)) {
-          return body.byteLength;
-        }
+        const supportsResponseStream =
+          isResponseSupported &&
+          isReadableStreamSupported &&
+          test(() => utils$1.isReadableStream(new Response("").body));
 
-        if (utils$1.isURLSearchParams(body)) {
-          body = body + "";
-        }
+        const resolvers = {
+          stream: supportsResponseStream && ((res) => res.body),
+        };
 
-        if (utils$1.isString(body)) {
-          return (await encodeText(body)).byteLength;
-        }
-      };
-
-      const resolveBodyLength = async (headers, body) => {
-        const length = utils$1.toFiniteNumber(headers.getContentLength());
-
-        return length == null ? getBodyLength(body) : length;
-      };
-
-      const fetchAdapter =
         isFetchSupported &&
-        (async (config) => {
+          (() => {
+            ["text", "arrayBuffer", "blob", "formData", "stream"].forEach(
+              (type) => {
+                !resolvers[type] &&
+                  (resolvers[type] = (res, config) => {
+                    let method = res && res[type];
+
+                    if (method) {
+                      return method.call(res);
+                    }
+
+                    throw new AxiosError(
+                      `Response type '${type}' is not supported`,
+                      AxiosError.ERR_NOT_SUPPORT,
+                      config,
+                    );
+                  });
+              },
+            );
+          })();
+
+        const getBodyLength = async (body) => {
+          if (body == null) {
+            return 0;
+          }
+
+          if (utils$1.isBlob(body)) {
+            return body.size;
+          }
+
+          if (utils$1.isSpecCompliantForm(body)) {
+            const _request = new Request(platform.origin, {
+              method: "POST",
+              body,
+            });
+            return (await _request.arrayBuffer()).byteLength;
+          }
+
+          if (utils$1.isArrayBufferView(body) || utils$1.isArrayBuffer(body)) {
+            return body.byteLength;
+          }
+
+          if (utils$1.isURLSearchParams(body)) {
+            body = body + "";
+          }
+
+          if (utils$1.isString(body)) {
+            return (await encodeText(body)).byteLength;
+          }
+        };
+
+        const resolveBodyLength = async (headers, body) => {
+          const length = utils$1.toFiniteNumber(headers.getContentLength());
+
+          return length == null ? getBodyLength(body) : length;
+        };
+
+        return async (config) => {
           let {
             url,
             method,
@@ -40971,6 +41098,8 @@ ${pendingInterceptorsFormatter.format(pending)}
             fetchOptions,
           } = resolveConfig(config);
 
+          let _fetch = envFetch || fetch;
+
           responseType = responseType
             ? (responseType + "").toLowerCase()
             : "text";
@@ -40980,7 +41109,7 @@ ${pendingInterceptorsFormatter.format(pending)}
             timeout,
           );
 
-          let request;
+          let request = null;
 
           const unsubscribe =
             composedSignal &&
@@ -41038,8 +41167,10 @@ ${pendingInterceptorsFormatter.format(pending)}
 
             // Cloudflare Workers throws when credentials are defined
             // see https://github.com/cloudflare/workerd/issues/902
-            const isCredentialsSupported = "credentials" in Request.prototype;
-            request = new Request(url, {
+            const isCredentialsSupported =
+              isRequestSupported && "credentials" in Request.prototype;
+
+            const resolvedOptions = {
               ...fetchOptions,
               signal: composedSignal,
               method: method.toUpperCase(),
@@ -41047,9 +41178,13 @@ ${pendingInterceptorsFormatter.format(pending)}
               body: data,
               duplex: "half",
               credentials: isCredentialsSupported ? withCredentials : undefined,
-            });
+            };
 
-            let response = await fetch(request, fetchOptions);
+            request = isRequestSupported && new Request(url, resolvedOptions);
+
+            let response = await (isRequestSupported
+              ? _fetch(request, fetchOptions)
+              : _fetch(url, resolvedOptions));
 
             const isStreamResponse =
               supportsResponseStream &&
@@ -41135,12 +41270,43 @@ ${pendingInterceptorsFormatter.format(pending)}
 
             throw AxiosError.from(err, err && err.code, config, request);
           }
-        });
+        };
+      };
+
+      const seedCache = new Map();
+
+      const getFetch = (config) => {
+        let env = config ? config.env : {};
+        const { fetch, Request, Response } = env;
+        const seeds = [Request, Response, fetch];
+
+        let len = seeds.length,
+          i = len,
+          seed,
+          target,
+          map = seedCache;
+
+        while (i--) {
+          seed = seeds[i];
+          target = map.get(seed);
+
+          target === undefined &&
+            map.set(seed, (target = i ? new Map() : factory(env)));
+
+          map = target;
+        }
+
+        return target;
+      };
+
+      getFetch();
 
       const knownAdapters = {
         http: httpAdapter,
         xhr: xhrAdapter,
-        fetch: fetchAdapter,
+        fetch: {
+          get: getFetch,
+        },
       };
 
       utils$1.forEach(knownAdapters, (fn, value) => {
@@ -41160,7 +41326,7 @@ ${pendingInterceptorsFormatter.format(pending)}
         utils$1.isFunction(adapter) || adapter === null || adapter === false;
 
       const adapters = {
-        getAdapter: (adapters) => {
+        getAdapter: (adapters, config) => {
           adapters = utils$1.isArray(adapters) ? adapters : [adapters];
 
           const { length } = adapters;
@@ -41184,7 +41350,10 @@ ${pendingInterceptorsFormatter.format(pending)}
               }
             }
 
-            if (adapter) {
+            if (
+              adapter &&
+              (utils$1.isFunction(adapter) || (adapter = adapter.get(config)))
+            ) {
               break;
             }
 
@@ -41258,6 +41427,7 @@ ${pendingInterceptorsFormatter.format(pending)}
 
         const adapter = adapters.getAdapter(
           config.adapter || defaults$1.adapter,
+          config,
         );
 
         return adapter(config).then(
@@ -41616,8 +41786,6 @@ ${pendingInterceptorsFormatter.format(pending)}
           len = requestInterceptorChain.length;
 
           let newConfig = config;
-
-          i = 0;
 
           while (i < len) {
             const onFulfilled = requestInterceptorChain[i++];
