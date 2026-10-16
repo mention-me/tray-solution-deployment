@@ -39174,8 +39174,9 @@ ${pendingInterceptorsFormatter.format(pending)}
 
       const formDataToStream$1 = formDataToStream;
 
-      class ZlibHeaderTransformStream extends stream__default["default"]
-        .Transform {
+      class ZlibHeaderTransformStream
+        extends stream__default["default"].Transform
+      {
         __transform(chunk, encoding, callback) {
           this.push(chunk);
           callback();
